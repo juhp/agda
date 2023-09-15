@@ -474,7 +474,15 @@ When installing Agda the following flags can be used:
 
 .. option:: debug
 
-     Enable debugging features that may slow Agda down. Default: off.
+     Enable debug printing. This makes Agda slightly slower, and
+     building Agda slower as well. The :option:`--verbose={N}` option
+     only has an effect when Agda was installed with this flag.
+     Default: off.
+
+.. option:: debug-serialise
+
+     Enable debug mode in serialisation. This makes serialisation slower.
+     Default: off.
 
 .. option:: enable-cluster-counting
 
