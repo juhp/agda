@@ -2067,6 +2067,7 @@ checkParameters dc d pars = liftTCM $ do
       compareArgs [] [] t (Def d []) vs (take (length vs) pars)
     _ -> __IMPOSSIBLE__
 
+{-# SPECIALIZE checkSortOfSplitVar :: DataOrRecord -> Type -> Telescope -> Maybe (Dom Type) -> TCM () #-}
 checkSortOfSplitVar :: (MonadTCM m, PureTCM m, MonadError TCErr m,
                         LensSort a, PrettyTCM a, LensSort ty, PrettyTCM ty)
                     => DataOrRecord -> a -> Telescope -> Maybe ty -> m ()

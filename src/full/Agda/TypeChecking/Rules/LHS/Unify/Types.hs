@@ -135,6 +135,7 @@ instance PrettyTCM UnifyState where
       delta = eqTel state
       prettyEquality x y = prettyTCM x <+> "=?=" <+> prettyTCM y
 
+{-# SPECIALIZE initUnifyState :: Telescope -> FlexibleVars -> Type -> Args -> Args -> TCM UnifyState #-}
 initUnifyState
   :: PureTCM m
   => Telescope -> FlexibleVars -> Type -> Args -> Args -> m UnifyState

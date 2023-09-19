@@ -216,9 +216,9 @@ reset = modifyBenchmark $
   mapCurrentAccount (const Strict.Nothing) .
   mapTimings (const Trie.empty)
 
+{-# INLINABLE billTo #-}
 -- | Bill a computation to a specific account.
 --   Works even if the computation is aborted by an exception.
-
 billTo :: MonadBench m => Account (BenchPhase m) -> m c -> m c
 billTo account m = ifNotM (isBenchmarkOn account <$> getsBenchmark benchmarkOn) m $ do
   -- Switch to new account.

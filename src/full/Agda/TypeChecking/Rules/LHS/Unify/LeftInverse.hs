@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wunused-imports #-}
-
 {-# LANGUAGE NondecreasingIndentation #-}
 
 module Agda.TypeChecking.Rules.LHS.Unify.LeftInverse where
@@ -54,6 +53,8 @@ data NoLeftInv
   | UnsupportedCxt
   deriving Show
 
+{-# SPECIALIZE
+  buildLeftInverse :: UnifyState -> UnifyLog -> TCM (Either NoLeftInv (Substitution, Substitution)) #-}
 buildLeftInverse :: (PureTCM tcm, MonadError TCErr tcm) => UnifyState -> UnifyLog -> tcm (Either NoLeftInv (Substitution, Substitution))
 buildLeftInverse s0 log = do
   reportSDoc "tc.lhs.unify.inv.badstep" 20 $ do
@@ -125,6 +126,8 @@ type Retract = (Telescope, Substitution, Substitution, Substitution)
 termsS ::  DeBruijn a => Impossible -> [a] -> Substitution' a
 termsS e xs = reverse xs ++# EmptyS e
 
+
+{-# SPECIALIZE composeRetract :: Retract -> Term -> Retract -> TCM Retract #-}
 composeRetract :: (PureTCM tcm, MonadError TCErr tcm, MonadDebug tcm,HasBuiltins tcm, MonadAddContext tcm) => Retract -> Term -> Retract -> tcm Retract
 composeRetract (prob0,rho0,tau0,leftInv0) phi0 (prob1,rho1,tau1,leftInv1) = do
   reportSDoc "tc.lhs.unify.inv" 20 $ "=== composing"
@@ -221,6 +224,8 @@ composeRetract (prob0,rho0,tau0,leftInv0) phi0 (prob1,rho1,tau1,leftInv1) = do
     reportSDoc "tc.lhs.unify.inv" 40 $ "leftInvSub  :" <+> pretty (termsS __IMPOSSIBLE__ $ absBody $ leftInv)
   return (prob, rho, tau , termsS __IMPOSSIBLE__ $ absBody $ leftInv)
 
+
+{-# SPECIALIZE buildEquiv :: UnifyLogEntry -> UnifyState -> TCM (Either NoLeftInv (Retract,Term)) #-}
 buildEquiv :: forall tcm. (PureTCM tcm, MonadError TCErr tcm) => UnifyLogEntry -> UnifyState -> tcm (Either NoLeftInv (Retract,Term))
 buildEquiv (UnificationStep st step@(Solution k ty fx tm side) output) next = runExceptT $ do
         let

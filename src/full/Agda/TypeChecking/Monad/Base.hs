@@ -816,10 +816,12 @@ class Enum i => HasFresh i where
     nextFresh' :: i -> i
     nextFresh' = succ
 
+{-# INLINE nextFresh #-}
 nextFresh :: HasFresh i => TCState -> (i, TCState)
 nextFresh s =
   let !c = s^.freshLens
-  in (c, set freshLens (nextFresh' c) s)
+      !next = set freshLens (nextFresh' c) s
+  in (c, next)
 
 class Monad m => MonadFresh i m where
   fresh :: m i
@@ -838,6 +840,7 @@ instance HasFresh i => MonadFresh i TCM where
         let (!c , !s') = nextFresh s
         putTC s'
         return c
+  {-# INLINE fresh #-}
 
 instance HasFresh MetaId where
   freshLens = stFreshMetaId
@@ -1113,6 +1116,7 @@ instance LensClosure (Closure a) a where
 instance LensTCEnv (Closure a) where
   lensTCEnv f cl = (f $! clEnv cl) <&> \ env -> cl { clEnv = env }
 
+{-# SPECIALIZE buildClosure :: a -> TCM (Closure a)  #-}
 buildClosure :: (MonadTCEnv m, ReadTCState m) => a -> m (Closure a)
 buildClosure x = do
     env   <- askTC
@@ -1580,6 +1584,9 @@ instance Pretty NamedMeta where
 
 type LocalMetaStore = Map MetaId MetaVariable
 
+{-# SPECIALIZE Map.insert :: MetaId -> v -> Map MetaId v -> Map MetaId v #-}
+{-# SPECIALIZE Map.lookup :: MetaId -> Map MetaId v -> Maybe v #-}
+
 -- | Used for meta-variables from other modules (and in 'Interface's).
 
 type RemoteMetaStore = HashMap MetaId RemoteMetaVariable
@@ -1769,6 +1776,9 @@ type Sections    = Map ModuleName Section
 type Definitions = HashMap QName Definition
 type RewriteRuleMap = HashMap QName RewriteRules
 type DisplayForms = HashMap QName [LocalDisplayForm]
+
+{-# SPECIALIZE HMap.insert :: QName -> v -> HashMap QName v -> HashMap QName v #-}
+{-# SPECIALIZE HMap.lookup :: QName -> HashMap QName v -> Maybe v #-}
 
 newtype Section = Section { _secTelescope :: Telescope }
   deriving (Show, NFData)
@@ -4707,29 +4717,36 @@ instance E.Exception TCErr
 
 instance MonadIO m => HasOptions (TCMT m) where
   pragmaOptions = useTC stPragmaOptions
+  {-# INLINE pragmaOptions #-}
 
   commandLineOptions = do
     p  <- useTC stPragmaOptions
     cl <- stPersistentOptions . stPersistentState <$> getTC
     return $ cl { optPragmaOptions = p }
+  {-# SPECIALIZE commandLineOptions :: TCM CommandLineOptions #-}
 
 -- HasOptions lifts through monad transformers
 -- (see default signatures in the HasOptions class).
 
 sizedTypesOption :: HasOptions m => m Bool
 sizedTypesOption = optSizedTypes <$> pragmaOptions
+{-# INLINE sizedTypesOption #-}
 
 guardednessOption :: HasOptions m => m Bool
 guardednessOption = optGuardedness <$> pragmaOptions
+{-# INLINE guardednessOption #-}
 
 withoutKOption :: HasOptions m => m Bool
 withoutKOption = optWithoutK <$> pragmaOptions
+{-# INLINE withoutKOption #-}
 
 cubicalCompatibleOption :: HasOptions m => m Bool
 cubicalCompatibleOption = optCubicalCompatible <$> pragmaOptions
+{-# INLINE cubicalCompatibleOption #-}
 
 enableCaching :: HasOptions m => m Bool
 enableCaching = optCaching <$> pragmaOptions
+{-# INLINE enableCaching #-}
 
 -----------------------------------------------------------------------------
 -- * The reduce monad
@@ -4865,6 +4882,8 @@ instance MonadTCEnv ReduceM where
   askTC   = ReduceM redEnv
   localTC = onReduceEnv . mapRedEnv
 
+
+{-# INLINE useR #-}
 -- Andrea comments (https://github.com/agda/agda/issues/1829#issuecomment-522312084):
 --
 --   useR forces the result of projecting the lens,
@@ -4876,9 +4895,11 @@ useR l = do
   !x <- (^.l) <$> getTCState
   return x
 
+{-# INLINE askR #-}
 askR :: ReduceM ReduceEnv
 askR = ReduceM ask
 
+{-# INLINE localR #-}
 localR :: (ReduceEnv -> ReduceEnv) -> ReduceM a -> ReduceM a
 localR f = ReduceM . local f . unReduceM
 
@@ -4982,9 +5003,11 @@ instance (Monoid w, MonadTCState m) => MonadTCState (WriterT w m)
 
 -- ** @TCState@ accessors (no lenses)
 
+{-# inline getsTC #-}
 getsTC :: ReadTCState m => (TCState -> a) -> m a
 getsTC f = f <$> getTCState
 
+{-# INLINE modifyTC' #-}
 -- | A variant of 'modifyTC' in which the computation is strict in the
 -- new state.
 modifyTC' :: MonadTCState m => (TCState -> TCState) -> m ()
@@ -4999,6 +5022,7 @@ modifyTC' f = do
 
 -- ** @TCState@ accessors via lenses
 
+{-# INLINE useTC #-}
 useTC :: ReadTCState m => Lens' TCState a -> m a
 useTC l = do
   !x <- getsTC (^. l)
@@ -5127,15 +5151,15 @@ thenTCMT = \(TCM m1) (TCM m2) -> TCM $ \r e -> m1 r e *> m2 r e
 {-# INLINE thenTCMT #-}
 
 instance Functor m => Functor (TCMT m) where
-  fmap = fmapTCMT
+  fmap = fmapTCMT; {-# INLINE fmap #-}
 
 fmapTCMT :: Functor m => (a -> b) -> TCMT m a -> TCMT m b
 fmapTCMT = \f (TCM m) -> TCM $ \r e -> fmap f (m r e)
 {-# INLINE fmapTCMT #-}
 
 instance Applicative m => Applicative (TCMT m) where
-  pure  = returnTCMT
-  (<*>) = apTCMT
+  pure  = returnTCMT; {-# INLINE pure #-}
+  (<*>) = apTCMT; {-# INLINE (<*>) #-}
 
 apTCMT :: Applicative m => TCMT m (a -> b) -> TCMT m a -> TCMT m b
 apTCMT = \(TCM mf) (TCM m) -> TCM $ \r e -> mf r e <*> m r e
@@ -5153,9 +5177,9 @@ instance MonadIO m => Monad (TCMT m) where
 -- if we want @instance MonadTrans TCMT@.
 instance Monad m => Monad (TCMT m) where
 #endif
-    return = pure
-    (>>=)  = bindTCMT
-    (>>)   = (*>)
+    return = pure; {-# INLINE return #-}
+    (>>=)  = bindTCMT; {-# INLINE (>>=) #-}
+    (>>)   = (*>); {-# INLINE (>>) #-}
 #if __GLASGOW_HASKELL__ < 806
     fail   = Fail.fail
 #endif
@@ -5183,17 +5207,17 @@ instance ( MonadFix m
     return x
 
 instance MonadIO m => MonadTCEnv (TCMT m) where
-  askTC             = TCM $ \ _ e -> return e
-  localTC f (TCM m) = TCM $ \ s e -> m s (f e)
+  askTC             = TCM $ \ _ e -> return e; {-# INLINE askTC #-}
+  localTC f (TCM m) = TCM $ \ s e -> m s (f e); {-# INLINE localTC #-}
 
 instance MonadIO m => MonadTCState (TCMT m) where
-  getTC   = TCM $ \ r _e -> liftIO (readIORef r)
-  putTC s = TCM $ \ r _e -> liftIO (writeIORef r s)
-  modifyTC f = putTC . f =<< getTC
+  getTC   = TCM $ \ r _e -> liftIO (readIORef r); {-# INLINE getTC #-}
+  putTC s = TCM $ \ r _e -> liftIO (writeIORef r s); {-# INLINE putTC #-}
+  modifyTC f = putTC . f =<< getTC; {-# INLINE modifyTC #-}
 
 instance MonadIO m => ReadTCState (TCMT m) where
-  getTCState = getTC
-  locallyTCState l f = bracket_ (useTC l <* modifyTCLens l f) (setTCLens l)
+  getTCState = getTC; {-# INLINE getTCState #-}
+  locallyTCState l f = bracket_ (useTC l <* modifyTCLens l f) (setTCLens l); {-# INLINE locallyTCState #-}
 
 instance MonadBlock TCM where
   patternViolation b = throwError (PatternErr b)
@@ -5237,7 +5261,7 @@ instance CatchImpossible TCM where
       unTCM (h err) r e
 
 instance MonadIO m => MonadReduce (TCMT m) where
-  liftReduce = liftTCM . runReduceM
+  liftReduce = liftTCM . runReduceM; {-# INLINE liftReduce #-}
 
 instance (IsString a, MonadIO m) => IsString (TCMT m a) where
   fromString s = return (fromString s)

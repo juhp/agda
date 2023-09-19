@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wunused-imports #-}
+{-# OPTIONS_GHC -ddump-spec  #-}
 
 {-# LANGUAGE NondecreasingIndentation #-}
 
@@ -225,6 +226,15 @@ unifyIndices linv tel flex a us vs =
   Bench.billTo [Bench.Typing, Bench.CheckLHS, Bench.UnifyIndices] $
     fmap (\(a,b,c,_) -> (a,b,c)) <$> unifyIndices' linv tel flex a us vs
 
+{-# SPECIALIZE
+  unifyIndices' ::
+        Maybe NoLeftInv
+     -> Telescope
+     -> FlexibleVars
+     -> Type
+     -> [Arg Term]
+     -> [Arg Term]
+     -> TCMT IO FullUnificationResult #-}
 unifyIndices'
   :: (PureTCM m, MonadError TCErr m)
   => Maybe NoLeftInv -- ^ Do we have a reason for not computing a left inverse?
@@ -524,8 +534,8 @@ skipIrrelevantStrategy k s = do
 -- Actually doing the unification
 ----------------------------------------------------
 
-unifyStep
-  :: (PureTCM m, MonadWriter UnifyOutput m, MonadError TCErr m)
+unifyStep ::
+     (PureTCM m, MonadWriter UnifyOutput m, MonadError TCErr m)
   => UnifyState -> UnifyStep -> m (UnificationResult' UnifyState)
 unifyStep s Deletion{ deleteAt = k , deleteType = a , deleteLeft = u , deleteRight = v } = do
     -- Check definitional equality of u and v
@@ -778,8 +788,8 @@ unifyStep s (TypeConInjectivity k d us vs) = do
 data RetryNormalised = RetryNormalised | DontRetryNormalised
   deriving (Eq, Show)
 
-solutionStep
-  :: (PureTCM m, MonadWriter UnifyOutput m)
+solutionStep ::
+     (PureTCM m, MonadWriter UnifyOutput m)
   => RetryNormalised
   -> UnifyState
   -> UnifyStep
@@ -893,16 +903,16 @@ solutionStep retry s
     Right True -> return $ UnifyStuck [UnifyUnusableModality (varTel s) a i u mod]
 solutionStep _ _ _ = __IMPOSSIBLE__
 
-unify
-  :: (PureTCM m, MonadWriter UnifyLog' m, MonadError TCErr m)
+
+unify ::
+     forall m.
+     (PureTCM m, MonadWriter UnifyLog' m, MonadError TCErr m)
   => UnifyState -> UnifyStrategy -> m (UnificationResult' UnifyState)
 unify s strategy = if isUnifyStateSolved s
                    then return $ Unifies s
                    else tryUnifyStepsAndContinue (strategy s)
   where
-    tryUnifyStepsAndContinue
-      :: (PureTCM m, MonadWriter UnifyLog' m, MonadError TCErr m)
-      => ListT m UnifyStep -> m (UnificationResult' UnifyState)
+    tryUnifyStepsAndContinue :: ListT m UnifyStep -> m (UnificationResult' UnifyState)
     tryUnifyStepsAndContinue steps = do
       x <- foldListT tryUnifyStep failure steps
       case x of
@@ -911,10 +921,7 @@ unify s strategy = if isUnifyStateSolved s
         UnifyBlocked b -> return $ UnifyBlocked b
         UnifyStuck err -> return $ UnifyStuck err
 
-    tryUnifyStep :: (PureTCM m, MonadWriter UnifyLog' m, MonadError TCErr m)
-                 => UnifyStep
-                 -> m (UnificationResult' UnifyState)
-                 -> m (UnificationResult' UnifyState)
+    tryUnifyStep :: UnifyStep -> m (UnificationResult' UnifyState) -> m (UnificationResult' UnifyState)
     tryUnifyStep step fallback = do
       addContext (varTel s) $
         reportSDoc "tc.lhs.unify" 20 $ "trying unifyStep" <+> prettyTCM step
@@ -939,7 +946,7 @@ unify s strategy = if isUnifyStateSolved s
             UnifyStuck err2 -> return $ UnifyStuck $ err1 ++ err2
             _               -> return y
 
-    failure :: Monad m => m (UnificationResult' a)
+    failure :: m (UnificationResult' a)
     failure = return $ UnifyStuck []
 
 -- | Turn a term into a pattern while binding as many of the given forced variables as possible (in

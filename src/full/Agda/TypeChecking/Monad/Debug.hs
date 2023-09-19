@@ -216,10 +216,13 @@ instance ReportS [String]  where reportS k n = reportSLn  k n . unlines
 instance ReportS [Doc]     where reportS k n = reportSLn  k n . render . vcat
 instance ReportS Doc       where reportS k n = reportSLn  k n . render
 
--- | Conditionally println debug string.
-{-# SPECIALIZE reportSLn :: VerboseKey -> VerboseLevel -> String -> TCM () #-}
+-- -- | Conditionally println debug string.
+-- {-# SPECIALIZE reportSLn :: VerboseKey -> VerboseLevel -> String -> TCM () #-}
+-- reportSLn :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m ()
+-- reportSLn k n s = verboseS k n $ displayDebugMessage k n $ s ++ "\n"
+
 reportSLn :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m ()
-reportSLn k n s = verboseS k n $ displayDebugMessage k n $ s ++ "\n"
+reportSLn k n s = pure (); {-# inline reportSLn #-}
 
 __IMPOSSIBLE_VERBOSE__ :: (HasCallStack, MonadDebug m) => String -> m a
 __IMPOSSIBLE_VERBOSE__ s = do
@@ -237,10 +240,13 @@ __IMPOSSIBLE_VERBOSE__ s = do
     err = withCallerCallStack Impossible
 
 -- | Conditionally render debug 'Doc' and print it.
-{-# SPECIALIZE reportSDoc :: VerboseKey -> VerboseLevel -> TCM Doc -> TCM () #-}
+-- {-# SPECIALIZE reportSDoc :: VerboseKey -> VerboseLevel -> TCM Doc -> TCM () #-}
+-- reportSDoc :: MonadDebug m => VerboseKey -> VerboseLevel -> TCM Doc -> m ()
+-- reportSDoc k n d = verboseS k n $ do
+--   displayDebugMessage k n . (++ "\n") =<< formatDebugMessage k n (locallyTC eIsDebugPrinting (const True) d)
+
 reportSDoc :: MonadDebug m => VerboseKey -> VerboseLevel -> TCM Doc -> m ()
-reportSDoc k n d = verboseS k n $ do
-  displayDebugMessage k n . (++ "\n") =<< formatDebugMessage k n (locallyTC eIsDebugPrinting (const True) d)
+reportSDoc k n d = pure (); {-# inline reportSDoc #-}
 
 -- | Debug print the result of a computation.
 reportResult :: MonadDebug m => VerboseKey -> VerboseLevel -> (a -> TCM Doc) -> m a -> m a
@@ -272,14 +278,21 @@ instance TraceS [String]  where traceS k n = traceSLn  k n . unlines
 instance TraceS [Doc]     where traceS k n = traceSLn  k n . render . vcat
 instance TraceS Doc       where traceS k n = traceSLn  k n . render
 
-traceSLn :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m a -> m a
-traceSLn k n s = applyWhenVerboseS k n $ traceDebugMessage k n $ s ++ "\n"
+-- traceSLn :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m a -> m a
+-- traceSLn k n s = applyWhenVerboseS k n $ traceDebugMessage k n $ s ++ "\n"
 
--- | Conditionally render debug 'Doc', print it, and then continue.
+traceSLn :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m a -> m a
+traceSLn k n s ma = ma; {-# inline traceSLn #-}
+
+-- -- | Conditionally render debug 'Doc', print it, and then continue.
+-- traceSDoc :: MonadDebug m => VerboseKey -> VerboseLevel -> TCM Doc -> m a -> m a
+-- traceSDoc k n d = applyWhenVerboseS k n $ \cont -> do
+--   s <- formatDebugMessage k n $ locallyTC eIsDebugPrinting (const True) d
+--   traceDebugMessage k n (s ++ "\n") cont
+
 traceSDoc :: MonadDebug m => VerboseKey -> VerboseLevel -> TCM Doc -> m a -> m a
-traceSDoc k n d = applyWhenVerboseS k n $ \cont -> do
-  s <- formatDebugMessage k n $ locallyTC eIsDebugPrinting (const True) d
-  traceDebugMessage k n (s ++ "\n") cont
+traceSDoc k n d ma = ma; {-# inline traceSDoc #-}
+
 
 openVerboseBracket :: MonadDebug m => VerboseKey -> VerboseLevel -> String -> m ()
 openVerboseBracket k n s = displayDebugMessage k n $ "{ " ++ s ++ "\n"
